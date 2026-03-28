@@ -1,8 +1,9 @@
-import { Home, Heart, MessageCircle, User } from "lucide-react";
+import { Home, Heart, MessageCircle, User, Briefcase } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useState } from "react";
 import WalkManagementSheet from "@/components/dashboard/shared/WalkManagementSheet";
+import { useRealtimeMessages } from "@/hooks/useRealtimeMessages";
 
 interface BottomNavProps {
   role: "owner" | "walker";
@@ -20,20 +21,21 @@ const BottomNav = ({ role, activeMission }: BottomNavProps) => {
   const navigate = useNavigate();
   const location = useLocation();
   const [walkSheetOpen, setWalkSheetOpen] = useState(false);
+  const { totalUnreadCount } = useRealtimeMessages();
 
   const basePath = role === "owner" ? "/dashboard" : "/walker/dashboard";
 
   const ownerItems = [
     { icon: Home, label: "Accueil", path: basePath },
     { icon: Heart, label: "Favoris", path: `${basePath}?tab=favoris` },
-    { icon: MessageCircle, label: "Messages", path: "/messages" },
+    { icon: MessageCircle, label: "Messages", path: `${basePath}?tab=messages`, badge: totalUnreadCount },
     { icon: User, label: "Profil", path: `${basePath}?tab=profil` },
   ];
 
   const walkerItems = [
     { icon: Home, label: "Accueil", path: basePath },
-    { icon: Home, label: "Missions", path: `${basePath}?tab=missions` },
-    { icon: MessageCircle, label: "Messages", path: "/messages" },
+    { icon: Briefcase, label: "Missions", path: `${basePath}?tab=missions` },
+    { icon: MessageCircle, label: "Messages", path: `${basePath}?tab=messages`, badge: totalUnreadCount },
     { icon: User, label: "Profil", path: `${basePath}?tab=profil` },
   ];
 
@@ -42,7 +44,6 @@ const BottomNav = ({ role, activeMission }: BottomNavProps) => {
   const isActive = (path: string) => {
     if (path === basePath && location.pathname === basePath && !location.search) return true;
     if (path.includes("?") && location.pathname + location.search === path) return true;
-    if (path === "/messages" && location.pathname === "/messages") return true;
     return false;
   };
 
@@ -72,7 +73,7 @@ const BottomNav = ({ role, activeMission }: BottomNavProps) => {
             );
           })}
 
-          {/* GO button - opens WalkManagementSheet */}
+          {/* GO button */}
           <motion.button
             whileTap={{ scale: 0.9 }}
             whileHover={{ scale: 1.08 }}
@@ -87,6 +88,7 @@ const BottomNav = ({ role, activeMission }: BottomNavProps) => {
 
           {items.slice(2).map((item) => {
             const active = isActive(item.path);
+            const badge = (item as any).badge;
             return (
               <button
                 key={item.label}
@@ -95,7 +97,14 @@ const BottomNav = ({ role, activeMission }: BottomNavProps) => {
                   active ? "text-primary" : "text-muted-foreground hover:text-foreground"
                 }`}
               >
-                <item.icon className="w-5 h-5" strokeWidth={active ? 2.5 : 2} />
+                <div className="relative">
+                  <item.icon className="w-5 h-5" strokeWidth={active ? 2.5 : 2} />
+                  {badge > 0 && (
+                    <span className="absolute -top-1.5 -right-2 min-w-[16px] h-4 rounded-full bg-destructive text-white text-[9px] font-bold flex items-center justify-center px-1">
+                      {badge > 9 ? "9+" : badge}
+                    </span>
+                  )}
+                </div>
                 <span className="text-[10px] font-bold">{item.label}</span>
                 {active && (
                   <motion.div

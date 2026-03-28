@@ -12,6 +12,7 @@ import FavoritesTab from "@/components/dashboard-v2/tabs/FavoritesTab";
 import ProfileTab from "@/components/dashboard-v2/tabs/ProfileTab";
 import BookingsTab from "@/components/dashboard-v2/tabs/BookingsTab";
 import DogsTab from "@/components/dashboard-v2/tabs/DogsTab";
+import MessagesTab from "@/components/dashboard-v2/tabs/MessagesTab";
 import { CheckCircle2, TrendingUp, Plus } from "lucide-react";
 import { motion } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
@@ -86,6 +87,7 @@ const OwnerDashboard = () => {
   if (activeTab === "profil") return (<div className="min-h-screen bg-background max-w-lg mx-auto"><ProfileTab role="owner" /><BottomNav role="owner" activeMission={activeMissionData} /></div>);
   if (activeTab === "reservations") return (<div className="min-h-screen bg-background max-w-lg mx-auto"><BookingsTab role="owner" /><BottomNav role="owner" activeMission={activeMissionData} /></div>);
   if (activeTab === "chiens") return (<div className="min-h-screen bg-background max-w-lg mx-auto"><DogsTab /><BottomNav role="owner" activeMission={activeMissionData} /></div>);
+  if (activeTab === "messages") return (<div className="min-h-screen bg-background max-w-lg mx-auto"><MessagesTab /><BottomNav role="owner" activeMission={activeMissionData} /></div>);
 
   return (
     <div className="min-h-screen bg-background pb-24 max-w-lg mx-auto">
