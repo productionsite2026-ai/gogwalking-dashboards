@@ -270,6 +270,20 @@ export const useRealtimeMessages = (selectedPartnerId?: string | null) => {
               .from('messages')
               .update({ read: true })
               .eq('id', newMsg.id);
+          } else {
+            // Not viewing this conversation - create a notification
+            supabase.from('profiles').select('first_name').eq('id', newMsg.sender_id).single()
+              .then(({ data: senderProfile }) => {
+                const senderName = senderProfile?.first_name || 'Quelqu\'un';
+                const isImage = newMsg.content.startsWith('[IMG]');
+                supabase.from('notifications').insert({
+                  user_id: currentUserId!,
+                  title: `💬 ${senderName}`,
+                  message: isImage ? '📷 Vous a envoyé une photo' : newMsg.content.substring(0, 80),
+                  type: 'message',
+                  link: '/dashboard?tab=messages',
+                });
+              });
           }
           
           // Refresh conversations
