@@ -14,6 +14,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBookings } from '@/hooks/useNewBookings';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
+import { useGPSTracking } from '@/hooks/useGPSTracking';
 
 type WalkPhase = 'select_booking' | 'idle' | 'starting' | 'in_progress' | 'ending' | 'completed';
 
