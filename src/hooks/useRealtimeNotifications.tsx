@@ -1,6 +1,8 @@
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
+import { toast } from "@/hooks/use-toast";
 
 interface Notification {
   id: string;
@@ -14,6 +16,9 @@ interface Notification {
 
 export const useRealtimeNotifications = () => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const { sendLocalNotification, permission } = usePushNotifications();
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
@@ -65,6 +70,15 @@ export const useRealtimeNotifications = () => {
               title: newNotification.title,
               description: newNotification.message,
             });
+
+            // Fire browser push notification
+            if (permission === 'granted') {
+              sendLocalNotification(newNotification.title, {
+                body: newNotification.message,
+                tag: newNotification.type || 'notification',
+                data: { link: newNotification.link },
+              });
+            }
 
             // Play notification sound (optional)
             try {
