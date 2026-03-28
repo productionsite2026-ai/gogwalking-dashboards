@@ -9,6 +9,7 @@ import QuickActions from "@/components/dashboard-v2/QuickActions";
 import NearbyWalkerCard from "@/components/dashboard-v2/NearbyWalkerCard";
 import UpcomingBookings from "@/components/dashboard-v2/UpcomingBookings";
 import LiveTrackingMap from "@/components/dashboard-v2/LiveTrackingMap";
+import WalkReplayMap from "@/components/dashboard-v2/WalkReplayMap";
 import FavoritesTab from "@/components/dashboard-v2/tabs/FavoritesTab";
 import ProfileTab from "@/components/dashboard-v2/tabs/ProfileTab";
 import BookingsTab from "@/components/dashboard-v2/tabs/BookingsTab";
@@ -21,10 +22,11 @@ import { useProfile } from "@/hooks/useProfile";
 import { useDogs, useAddDog } from "@/hooks/useNewDogs";
 import { useBookings } from "@/hooks/useNewBookings";
 import { useNearbyWalkers } from "@/hooks/useNearbyWalkers";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { toast } from "sonner";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { mockDogs, mockBookings, mockNearbyWalkers, mockProfile, mockUpcomingBookings } from "@/data/demoData";
+import { parseGPSDataFromNotes, parseGPSMetaFromNotes, cleanNotesFromGPS } from "@/hooks/useGPSTracking";
 
 const OwnerDashboard = () => {
   const navigate = useNavigate();
