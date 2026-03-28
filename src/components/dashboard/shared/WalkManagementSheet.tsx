@@ -14,6 +14,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBookings } from '@/hooks/useNewBookings';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
+import { useGPSTracking } from '@/hooks/useGPSTracking';
 
 type WalkPhase = 'select_booking' | 'idle' | 'starting' | 'in_progress' | 'ending' | 'completed';
 
@@ -42,6 +43,12 @@ const WalkManagementSheet = ({ open, onOpenChange, activeMission }: WalkManageme
   const [endCode, setEndCode] = useState('');
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // GPS Tracking - starts when mission is in_progress
+  const { currentPosition, tracking: gpsTracking, error: gpsError } = useGPSTracking({
+    bookingId: selectedBooking?.id || null,
+    enabled: phase === 'in_progress',
+  });
 
   // Confirmed bookings available to start
   const confirmedBookings = bookings.filter((b: any) => b.status === 'confirmed');
@@ -386,6 +393,13 @@ const WalkManagementSheet = ({ open, onOpenChange, activeMission }: WalkManageme
                     {selectedBooking && (
                       <p className="text-xs text-muted-foreground mt-2">🐕 {selectedBooking.dogName} · {selectedBooking.duration}min prévues</p>
                     )}
+                    {/* GPS Status */}
+                    <div className="flex items-center justify-center gap-2 mt-2">
+                      <span className={`w-2 h-2 rounded-full ${gpsTracking ? 'bg-green-500 animate-pulse' : 'bg-destructive'}`} />
+                      <span className="text-[10px] text-muted-foreground font-semibold">
+                        {gpsTracking ? '📍 GPS actif — Position partagée' : gpsError || 'GPS inactif'}
+                      </span>
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-3">

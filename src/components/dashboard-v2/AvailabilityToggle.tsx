@@ -1,9 +1,55 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { MapPin, Zap } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 
 const AvailabilityToggle = () => {
+  const { user } = useAuth();
   const [available, setAvailable] = useState(true);
+  const [loading, setLoading] = useState(false);
+
+  // Load initial state from walker_profiles
+  useEffect(() => {
+    if (!user) return;
+    const fetchAvailability = async () => {
+      const { data } = await supabase
+        .from("walker_profiles")
+        .select("available_hours_start")
+        .eq("user_id", user.id)
+        .single();
+      // Use available_hours_start as proxy: null = unavailable
+      if (data) {
+        setAvailable(!!data.available_hours_start);
+      }
+    };
+    fetchAvailability();
+  }, [user]);
+
+  const toggleAvailability = async () => {
+    const newState = !available;
+    setAvailable(newState);
+    
+    if (!user) return;
+    setLoading(true);
+    
+    const { error } = await supabase
+      .from("walker_profiles")
+      .update({
+        available_hours_start: newState ? "08:00" : null,
+        available_hours_end: newState ? "19:00" : null,
+      })
+      .eq("user_id", user.id);
+
+    if (error) {
+      setAvailable(!newState); // Revert
+      toast.error("Erreur de mise à jour");
+    } else {
+      toast.success(newState ? "Vous êtes maintenant disponible" : "Vous êtes hors ligne");
+    }
+    setLoading(false);
+  };
 
   return (
     <motion.div
@@ -29,8 +75,9 @@ const AvailabilityToggle = () => {
         </div>
       </div>
       <button
-        onClick={() => setAvailable(!available)}
-        className={`relative rounded-full transition-all duration-300 ${available ? "gradient-accent" : "bg-muted"}`}
+        onClick={toggleAvailability}
+        disabled={loading}
+        className={`relative rounded-full transition-all duration-300 ${available ? "gradient-accent" : "bg-muted"} ${loading ? "opacity-50" : ""}`}
         style={{ width: 52, height: 28 }}
       >
         <AnimatePresence mode="wait">

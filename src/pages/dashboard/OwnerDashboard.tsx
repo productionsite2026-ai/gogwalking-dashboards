@@ -8,6 +8,7 @@ import WeatherWidget from "@/components/dashboard-v2/WeatherWidget";
 import QuickActions from "@/components/dashboard-v2/QuickActions";
 import NearbyWalkerCard from "@/components/dashboard-v2/NearbyWalkerCard";
 import UpcomingBookings from "@/components/dashboard-v2/UpcomingBookings";
+import LiveTrackingMap from "@/components/dashboard-v2/LiveTrackingMap";
 import FavoritesTab from "@/components/dashboard-v2/tabs/FavoritesTab";
 import ProfileTab from "@/components/dashboard-v2/tabs/ProfileTab";
 import BookingsTab from "@/components/dashboard-v2/tabs/BookingsTab";
@@ -183,6 +184,14 @@ const OwnerDashboard = () => {
         </motion.div>
 
         <WeatherWidget temp={18} condition="sunny" recommendation="Parfait pour promener vos chiens !" />
+
+        {/* Live GPS Tracking Map */}
+        <LiveTrackingMap
+          bookingId={activeMissionData?.id || null}
+          dogName={activeMissionData?.dogName || ""}
+          walkerName={activeMissionData?.ownerName || ""}
+        />
+
         <UpcomingBookings bookings={upcomingBookings} />
 
         <div className="space-y-2.5">
