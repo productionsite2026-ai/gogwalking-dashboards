@@ -2,7 +2,6 @@ import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
-import { toast } from "@/hooks/use-toast";
 
 interface Notification {
   id: string;
@@ -19,8 +18,6 @@ export const useRealtimeNotifications = () => {
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const { sendLocalNotification, permission } = usePushNotifications();
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [loading, setLoading] = useState(true);
 
   const fetchNotifications = useCallback(async () => {
     const { data: { session } } = await supabase.auth.getSession();
