@@ -1,17 +1,38 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { MessageCircle, Send, ArrowLeft, Search } from "lucide-react";
+import { MessageCircle, Send, ArrowLeft, Search, Image, Paperclip, X, Volume2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useRealtimeMessages, Conversation } from "@/hooks/useRealtimeMessages";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+
+// Notification sound (base64 encoded short beep)
+const NOTIFICATION_SOUND_URL = "data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbsGczHj6NyN/Qu2k8JT2Hw9bQv3xMM0OFwtHOw4FVOUmKxNHMwIBWPEmKxM/JvX1VPEuMyM3FuXlUP1CQy8zDtXVTQFOUzsvBsHJSQViX0svBr3FPQlqa08zBrm5MQWCi18/ArWxKQWWt5NHArGlGP2iy59PBqWRDP3C46tfGplxAPnO87d3Mol5CP3fB8+LMn11BQHrF+OfQnFpAQH7K/ezUmldAQYDP//DYmFY/QYLR//PbllQ+QYTT//XdlFI9QIbV//fflVA8P4XX//nhl009PoXZ//rjlks8PoXZ//vjl0o7PYTa//zkmEk7PYPa//3lmUg6PILb//7nmkc5O4Hb///om0Y5O4Dc///pnEU4OoHc///qnUQ4On/d///snkM3OX7d///tn0I2OX3e///uoEE2OHze///voUA1OH3e///woT81N37e///xoj80N37e///yoz40Nn/e///0pD0zNn/e///1pTwyNoHe///2pjsxNYHe///4pzovNILe///5qDkuNILe///6qTgtM4Pe///7qjcsM4Pf///8qzYrMoPf///+rDUqMYTf///";
+
+const playNotificationSound = () => {
+  try {
+    const audio = new Audio(NOTIFICATION_SOUND_URL);
+    audio.volume = 0.4;
+    audio.play().catch(() => {});
+  } catch {}
+};
+
+// Check if content is an image message
+const isImageMessage = (content: string) => content.startsWith("[IMG]");
+const getImageUrl = (content: string) => content.replace("[IMG]", "");
 
 const MessagesTab = () => {
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [newMessage, setNewMessage] = useState("");
   const [sending, setSending] = useState(false);
   const [search, setSearch] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const prevMessageCountRef = useRef(0);
 
   const {
     messages,
@@ -31,6 +52,17 @@ const MessagesTab = () => {
 
   useEffect(() => { scrollToBottom(); }, [messages, scrollToBottom]);
 
+  // Play sound on new incoming messages
+  useEffect(() => {
+    if (messages.length > prevMessageCountRef.current && prevMessageCountRef.current > 0) {
+      const lastMsg = messages[messages.length - 1];
+      if (lastMsg && lastMsg.sender_id !== currentUserId) {
+        playNotificationSound();
+      }
+    }
+    prevMessageCountRef.current = messages.length;
+  }, [messages, currentUserId]);
+
   const filtered = conversations.filter(c =>
     c.otherParticipant?.first_name?.toLowerCase().includes(search.toLowerCase())
   );
@@ -44,6 +76,45 @@ const MessagesTab = () => {
     const { success } = await sendMessage(content, selectedConversation.otherParticipant.id);
     if (!success) setNewMessage(content);
     setSending(false);
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !currentUserId || !selectedConversation?.otherParticipant?.id) return;
+
+    // Validate file
+    if (!file.type.startsWith("image/")) {
+      toast({ title: "Fichier non supporté", description: "Seules les images sont acceptées", variant: "destructive" });
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: "Fichier trop volumineux", description: "Maximum 5 Mo", variant: "destructive" });
+      return;
+    }
+
+    setUploading(true);
+    const ext = file.name.split(".").pop();
+    const path = `chat/${currentUserId}/${Date.now()}.${ext}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from("walk-proofs")
+      .upload(path, file, { contentType: file.type });
+
+    if (uploadError) {
+      toast({ title: "Erreur upload", description: uploadError.message, variant: "destructive" });
+      setUploading(false);
+      return;
+    }
+
+    const { data: urlData } = supabase.storage.from("walk-proofs").getPublicUrl(path);
+    const imageContent = `[IMG]${urlData.publicUrl}`;
+    
+    await sendMessage(imageContent, selectedConversation.otherParticipant.id);
+    setUploading(false);
+    toast({ title: "Image envoyée ✓" });
+    
+    // Reset file input
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -104,6 +175,8 @@ const MessagesTab = () => {
             {filtered.map((conv, i) => {
               const online = isUserOnline(conv.id);
               const typing = isUserTyping(conv.id);
+              const lastContent = conv.lastMessage?.content || "";
+              const isImg = isImageMessage(lastContent);
               return (
                 <motion.button
                   key={conv.id}
@@ -135,7 +208,7 @@ const MessagesTab = () => {
                     ) : (
                       <p className="text-xs text-muted-foreground truncate">
                         {conv.lastMessage?.sender_id === currentUserId && "Vous : "}
-                        {conv.lastMessage?.content || "Démarrer la conversation"}
+                        {isImg ? "📷 Photo" : (conv.lastMessage?.content || "Démarrer la conversation")}
                       </p>
                     )}
                   </div>
@@ -160,6 +233,15 @@ const MessagesTab = () => {
 
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)] pb-16">
+      {/* Hidden file input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handleImageUpload}
+      />
+
       {/* Chat Header */}
       <div className="px-4 py-3 border-b bg-card flex items-center gap-3">
         <button onClick={() => setSelectedConversation(null)} className="text-muted-foreground hover:text-foreground">
@@ -180,6 +262,24 @@ const MessagesTab = () => {
         </div>
       </div>
 
+      {/* Image preview overlay */}
+      <AnimatePresence>
+        {imagePreview && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
+            onClick={() => setImagePreview(null)}
+          >
+            <button className="absolute top-4 right-4 text-white" onClick={() => setImagePreview(null)}>
+              <X className="w-6 h-6" />
+            </button>
+            <img src={imagePreview} alt="Preview" className="max-w-full max-h-full rounded-xl object-contain" />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
         {messages.length === 0 ? (
@@ -190,6 +290,7 @@ const MessagesTab = () => {
         ) : (
           messages.map((msg) => {
             const isOwn = msg.sender_id === currentUserId;
+            const isImg = isImageMessage(msg.content);
             return (
               <motion.div
                 key={msg.id}
@@ -197,18 +298,31 @@ const MessagesTab = () => {
                 animate={{ opacity: 1, y: 0 }}
                 className={cn("flex", isOwn ? "justify-end" : "justify-start")}
               >
-                <div className={cn(
-                  "max-w-[75%] px-3.5 py-2.5 rounded-2xl text-sm",
-                  isOwn
-                    ? "gradient-primary text-white rounded-br-md"
-                    : "bg-muted text-foreground rounded-bl-md"
-                )}>
-                  <p className="leading-relaxed">{msg.content}</p>
-                  <p className={cn("text-[9px] mt-1", isOwn ? "text-white/60" : "text-muted-foreground")}>
-                    {new Date(msg.created_at || "").toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
-                    {isOwn && msg.read && " ✓✓"}
-                  </p>
-                </div>
+                {isImg ? (
+                  <div className={cn("max-w-[75%] rounded-2xl overflow-hidden cursor-pointer", isOwn ? "rounded-br-md" : "rounded-bl-md")}
+                    onClick={() => setImagePreview(getImageUrl(msg.content))}>
+                    <img src={getImageUrl(msg.content)} alt="Photo partagée" className="w-full max-h-60 object-cover" loading="lazy" />
+                    <div className={cn("px-3 py-1.5", isOwn ? "gradient-primary" : "bg-muted")}>
+                      <p className={cn("text-[9px]", isOwn ? "text-white/60" : "text-muted-foreground")}>
+                        📷 {new Date(msg.created_at || "").toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+                        {isOwn && msg.read && " ✓✓"}
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className={cn(
+                    "max-w-[75%] px-3.5 py-2.5 rounded-2xl text-sm",
+                    isOwn
+                      ? "gradient-primary text-white rounded-br-md"
+                      : "bg-muted text-foreground rounded-bl-md"
+                  )}>
+                    <p className="leading-relaxed">{msg.content}</p>
+                    <p className={cn("text-[9px] mt-1", isOwn ? "text-white/60" : "text-muted-foreground")}>
+                      {new Date(msg.created_at || "").toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+                      {isOwn && msg.read && " ✓✓"}
+                    </p>
+                  </div>
+                )}
               </motion.div>
             );
           })
@@ -224,9 +338,22 @@ const MessagesTab = () => {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input */}
+      {/* Input with image button */}
       <div className="px-4 py-3 border-t bg-card">
-        <form onSubmit={e => { e.preventDefault(); handleSend(); }} className="flex gap-2">
+        <form onSubmit={e => { e.preventDefault(); handleSend(); }} className="flex gap-2 items-center">
+          <motion.button
+            type="button"
+            whileTap={{ scale: 0.9 }}
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploading}
+            className="w-10 h-10 rounded-full bg-muted flex items-center justify-center shrink-0 disabled:opacity-50"
+          >
+            {uploading ? (
+              <motion.div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full" animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }} />
+            ) : (
+              <Image className="w-4 h-4 text-muted-foreground" />
+            )}
+          </motion.button>
           <input
             ref={inputRef}
             value={newMessage}
@@ -240,7 +367,7 @@ const MessagesTab = () => {
             whileTap={{ scale: 0.9 }}
             type="submit"
             disabled={sending || !newMessage.trim()}
-            className="w-10 h-10 rounded-full gradient-primary flex items-center justify-center disabled:opacity-50"
+            className="w-10 h-10 rounded-full gradient-primary flex items-center justify-center disabled:opacity-50 shrink-0"
           >
             <Send className="w-4 h-4 text-white" />
           </motion.button>
