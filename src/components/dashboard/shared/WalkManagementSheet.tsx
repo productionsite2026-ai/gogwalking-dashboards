@@ -44,6 +44,12 @@ const WalkManagementSheet = ({ open, onOpenChange, activeMission }: WalkManageme
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // GPS Tracking - starts when mission is in_progress
+  const { currentPosition, tracking: gpsTracking, error: gpsError } = useGPSTracking({
+    bookingId: selectedBooking?.id || null,
+    enabled: phase === 'in_progress',
+  });
+
   // Confirmed bookings available to start
   const confirmedBookings = bookings.filter((b: any) => b.status === 'confirmed');
 
