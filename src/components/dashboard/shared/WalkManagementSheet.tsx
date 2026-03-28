@@ -393,6 +393,13 @@ const WalkManagementSheet = ({ open, onOpenChange, activeMission }: WalkManageme
                     {selectedBooking && (
                       <p className="text-xs text-muted-foreground mt-2">🐕 {selectedBooking.dogName} · {selectedBooking.duration}min prévues</p>
                     )}
+                    {/* GPS Status */}
+                    <div className="flex items-center justify-center gap-2 mt-2">
+                      <span className={`w-2 h-2 rounded-full ${gpsTracking ? 'bg-green-500 animate-pulse' : 'bg-destructive'}`} />
+                      <span className="text-[10px] text-muted-foreground font-semibold">
+                        {gpsTracking ? '📍 GPS actif — Position partagée' : gpsError || 'GPS inactif'}
+                      </span>
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-3">
