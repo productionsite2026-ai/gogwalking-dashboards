@@ -9,6 +9,7 @@ import QuickActions from "@/components/dashboard-v2/QuickActions";
 import NearbyWalkerCard from "@/components/dashboard-v2/NearbyWalkerCard";
 import UpcomingBookings from "@/components/dashboard-v2/UpcomingBookings";
 import LiveTrackingMap from "@/components/dashboard-v2/LiveTrackingMap";
+import WalkReplayMap from "@/components/dashboard-v2/WalkReplayMap";
 import FavoritesTab from "@/components/dashboard-v2/tabs/FavoritesTab";
 import ProfileTab from "@/components/dashboard-v2/tabs/ProfileTab";
 import BookingsTab from "@/components/dashboard-v2/tabs/BookingsTab";
@@ -21,10 +22,11 @@ import { useProfile } from "@/hooks/useProfile";
 import { useDogs, useAddDog } from "@/hooks/useNewDogs";
 import { useBookings } from "@/hooks/useNewBookings";
 import { useNearbyWalkers } from "@/hooks/useNearbyWalkers";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { toast } from "sonner";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { mockDogs, mockBookings, mockNearbyWalkers, mockProfile, mockUpcomingBookings } from "@/data/demoData";
+import { parseGPSDataFromNotes, parseGPSMetaFromNotes, cleanNotesFromGPS } from "@/hooks/useGPSTracking";
 
 const OwnerDashboard = () => {
   const navigate = useNavigate();
@@ -83,7 +85,26 @@ const OwnerDashboard = () => {
 
   const completedBookings = bookings.filter((b: any) => b.status === "completed").length;
 
-  // Render tab content
+  // Get last completed booking with GPS data for replay
+  const lastCompletedWithGPS = useMemo(() => {
+    const completed = bookings
+      .filter((b: any) => b.status === "completed" && b.notes)
+      .sort((a: any, b: any) => new Date(b.updated_at || 0).getTime() - new Date(a.updated_at || 0).getTime());
+    
+    for (const b of completed) {
+      const trail = parseGPSDataFromNotes((b as any).notes);
+      if (trail && trail.length > 0) {
+        const meta = parseGPSMetaFromNotes((b as any).notes);
+        return {
+          booking: b as any,
+          trail,
+          duration: meta ? Math.round((meta.end_time - meta.start_time) / 1000) : 0,
+        };
+      }
+    }
+    return null;
+  }, [bookings]);
+
   if (activeTab === "favoris") return (<div className="min-h-screen bg-background max-w-lg mx-auto"><FavoritesTab /><BottomNav role="owner" activeMission={activeMissionData} /></div>);
   if (activeTab === "profil") return (<div className="min-h-screen bg-background max-w-lg mx-auto"><ProfileTab role="owner" /><BottomNav role="owner" activeMission={activeMissionData} /></div>);
   if (activeTab === "reservations") return (<div className="min-h-screen bg-background max-w-lg mx-auto"><BookingsTab role="owner" /><BottomNav role="owner" activeMission={activeMissionData} /></div>);
@@ -191,6 +212,17 @@ const OwnerDashboard = () => {
           dogName={activeMissionData?.dogName || ""}
           walkerName={activeMissionData?.ownerName || ""}
         />
+
+        {/* Walk Replay for last completed mission */}
+        {lastCompletedWithGPS && (
+          <WalkReplayMap
+            positions={lastCompletedWithGPS.trail}
+            dogName={lastCompletedWithGPS.booking.dogs?.name || "Chien"}
+            walkerName="Promeneur"
+            duration={lastCompletedWithGPS.duration}
+            date={lastCompletedWithGPS.booking.scheduled_date}
+          />
+        )}
 
         <UpcomingBookings bookings={upcomingBookings} />
 

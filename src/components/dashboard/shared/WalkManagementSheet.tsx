@@ -14,7 +14,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBookings } from '@/hooks/useNewBookings';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
-import { useGPSTracking } from '@/hooks/useGPSTracking';
+import { useGPSTracking, type GPSPosition } from '@/hooks/useGPSTracking';
 
 type WalkPhase = 'select_booking' | 'idle' | 'starting' | 'in_progress' | 'ending' | 'completed';
 
@@ -45,7 +45,7 @@ const WalkManagementSheet = ({ open, onOpenChange, activeMission }: WalkManageme
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // GPS Tracking - starts when mission is in_progress
-  const { currentPosition, tracking: gpsTracking, error: gpsError } = useGPSTracking({
+  const { currentPosition, tracking: gpsTracking, error: gpsError, saveTrailToBooking } = useGPSTracking({
     bookingId: selectedBooking?.id || null,
     enabled: phase === 'in_progress',
   });
@@ -186,6 +186,9 @@ const WalkManagementSheet = ({ open, onOpenChange, activeMission }: WalkManageme
 
   const handleConfirmEnd = async () => {
     if (user && selectedBooking) {
+      // Save GPS trail first
+      await saveTrailToBooking();
+
       await supabase.from('bookings').update({
         status: 'completed',
         notes: message,

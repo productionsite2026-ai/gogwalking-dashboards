@@ -1,9 +1,8 @@
-// DogWalking Service Worker v1.0.0
-const CACHE_NAME = 'dogwalking-v1';
-const STATIC_CACHE = 'dogwalking-static-v1';
-const DYNAMIC_CACHE = 'dogwalking-dynamic-v1';
+// DogWalking Service Worker v2.0.0
+const CACHE_NAME = 'dogwalking-v2';
+const STATIC_CACHE = 'dogwalking-static-v2';
+const DYNAMIC_CACHE = 'dogwalking-dynamic-v2';
 
-// Assets to cache immediately
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -11,54 +10,38 @@ const STATIC_ASSETS = [
   '/favicon.ico'
 ];
 
-// Install event - cache static assets
+// Install event
 self.addEventListener('install', (event) => {
-  console.log('[SW] Installing service worker...');
-  
   event.waitUntil(
     caches.open(STATIC_CACHE)
-      .then((cache) => {
-        console.log('[SW] Caching static assets');
-        return cache.addAll(STATIC_ASSETS);
-      })
+      .then((cache) => cache.addAll(STATIC_ASSETS))
       .then(() => self.skipWaiting())
   );
 });
 
-// Activate event - clean up old caches
+// Activate event
 self.addEventListener('activate', (event) => {
-  console.log('[SW] Activating service worker...');
-  
   event.waitUntil(
     caches.keys()
       .then((keys) => {
         return Promise.all(
           keys
             .filter((key) => key !== STATIC_CACHE && key !== DYNAMIC_CACHE)
-            .map((key) => {
-              console.log('[SW] Deleting old cache:', key);
-              return caches.delete(key);
-            })
+            .map((key) => caches.delete(key))
         );
       })
       .then(() => self.clients.claim())
   );
 });
 
-// Fetch event - network first, fallback to cache
+// Fetch event
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
-  
-  // Skip non-GET requests
+
   if (request.method !== 'GET') return;
-  
-  // Skip API calls and Supabase requests
-  if (url.pathname.startsWith('/api') || url.hostname.includes('supabase')) {
-    return;
-  }
-  
-  // For HTML pages - network first
+  if (url.pathname.startsWith('/api') || url.hostname.includes('supabase')) return;
+
   if (request.headers.get('accept')?.includes('text/html')) {
     event.respondWith(
       fetch(request)
@@ -71,8 +54,7 @@ self.addEventListener('fetch', (event) => {
     );
     return;
   }
-  
-  // For static assets - cache first
+
   if (
     url.pathname.match(/\.(js|css|png|jpg|jpeg|gif|svg|woff2?|ttf|eot)$/) ||
     url.pathname.startsWith('/assets/')
@@ -81,7 +63,6 @@ self.addEventListener('fetch', (event) => {
       caches.match(request)
         .then((cached) => {
           if (cached) return cached;
-          
           return fetch(request).then((response) => {
             const clone = response.clone();
             caches.open(STATIC_CACHE).then((cache) => cache.put(request, clone));
@@ -91,8 +72,7 @@ self.addEventListener('fetch', (event) => {
     );
     return;
   }
-  
-  // Default - network first with cache fallback
+
   event.respondWith(
     fetch(request)
       .then((response) => {
@@ -104,61 +84,85 @@ self.addEventListener('fetch', (event) => {
   );
 });
 
-// Push notification event
+// Push notification event - enhanced with message support
 self.addEventListener('push', (event) => {
-  console.log('[SW] Push received');
-  
-  let data = { title: 'DogWalking', body: 'Nouvelle notification' };
-  
+  let data = { title: 'Open GO', body: 'Nouvelle notification', type: 'general' };
+
   if (event.data) {
     try {
-      data = event.data.json();
+      data = { ...data, ...event.data.json() };
     } catch (e) {
       data.body = event.data.text();
     }
   }
-  
+
+  // Different icons/actions based on notification type
+  let icon = '/icons/icon-192x192.png';
+  let badge = '/icons/icon-72x72.png';
+  let actions = [
+    { action: 'open', title: 'Ouvrir' },
+    { action: 'close', title: 'Fermer' }
+  ];
+
+  if (data.type === 'message') {
+    actions = [
+      { action: 'reply', title: '💬 Répondre' },
+      { action: 'close', title: 'Fermer' }
+    ];
+  } else if (data.type === 'booking') {
+    actions = [
+      { action: 'open', title: '📋 Voir' },
+      { action: 'close', title: 'Fermer' }
+    ];
+  } else if (data.type === 'mission') {
+    actions = [
+      { action: 'open', title: '🐾 Suivre' },
+      { action: 'close', title: 'Fermer' }
+    ];
+  }
+
   const options = {
     body: data.body,
-    icon: '/icons/icon-192x192.png',
-    badge: '/icons/icon-72x72.png',
+    icon,
+    badge,
     vibrate: [100, 50, 100],
+    tag: data.type || 'notification',
+    renotify: true,
     data: {
       url: data.url || '/',
+      type: data.type,
       dateOfArrival: Date.now()
     },
-    actions: data.actions || [
-      { action: 'open', title: 'Ouvrir' },
-      { action: 'close', title: 'Fermer' }
-    ]
+    actions
   };
-  
+
   event.waitUntil(
     self.registration.showNotification(data.title, options)
   );
 });
 
-// Notification click event
+// Notification click
 self.addEventListener('notificationclick', (event) => {
-  console.log('[SW] Notification clicked');
-  
   event.notification.close();
-  
+
   if (event.action === 'close') return;
-  
-  const urlToOpen = event.notification.data?.url || '/';
-  
+
+  let urlToOpen = event.notification.data?.url || '/';
+
+  // Handle reply action - open messages tab
+  if (event.action === 'reply') {
+    urlToOpen = '/dashboard?tab=messages';
+  }
+
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true })
       .then((clientList) => {
-        // Check if there's already an open window
         for (const client of clientList) {
           if (client.url.includes(self.location.origin) && 'focus' in client) {
             client.navigate(urlToOpen);
             return client.focus();
           }
         }
-        // Open a new window
         return clients.openWindow(urlToOpen);
       })
   );
@@ -166,16 +170,55 @@ self.addEventListener('notificationclick', (event) => {
 
 // Background sync for offline messages
 self.addEventListener('sync', (event) => {
-  console.log('[SW] Sync event:', event.tag);
-  
   if (event.tag === 'send-message') {
     event.waitUntil(syncMessages());
+  }
+  if (event.tag === 'sync-gps') {
+    event.waitUntil(syncGPSData());
   }
 });
 
 async function syncMessages() {
-  // This would sync any pending messages stored in IndexedDB
-  console.log('[SW] Syncing pending messages...');
+  try {
+    const cache = await caches.open('pending-messages');
+    const requests = await cache.keys();
+    
+    for (const request of requests) {
+      const response = await cache.match(request);
+      if (response) {
+        const data = await response.json();
+        // Re-send message via fetch to Supabase
+        await fetch(data.url, {
+          method: 'POST',
+          headers: data.headers,
+          body: JSON.stringify(data.body)
+        });
+        await cache.delete(request);
+      }
+    }
+  } catch (e) {
+    console.error('[SW] Sync messages failed:', e);
+  }
 }
 
-console.log('[SW] Service worker loaded');
+async function syncGPSData() {
+  try {
+    const cache = await caches.open('pending-gps');
+    const requests = await cache.keys();
+    
+    for (const request of requests) {
+      const response = await cache.match(request);
+      if (response) {
+        const data = await response.json();
+        await fetch(data.url, {
+          method: 'PATCH',
+          headers: data.headers,
+          body: JSON.stringify(data.body)
+        });
+        await cache.delete(request);
+      }
+    }
+  } catch (e) {
+    console.error('[SW] Sync GPS failed:', e);
+  }
+}

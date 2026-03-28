@@ -2,7 +2,7 @@ import { useEffect, useRef, useCallback, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 
-interface GPSPosition {
+export interface GPSPosition {
   lat: number;
   lng: number;
   accuracy: number;
@@ -30,12 +30,10 @@ export const useGPSTracking = ({ bookingId, enabled }: UseGPSTrackingOptions) =>
       return;
     }
 
-    // Create broadcast channel for this booking
     const channel = supabase.channel(`gps-tracking-${bookingId}`);
     channel.subscribe();
     channelRef.current = channel;
 
-    // Watch position
     watchIdRef.current = navigator.geolocation.watchPosition(
       (position) => {
         const pos: GPSPosition = {
@@ -49,7 +47,6 @@ export const useGPSTracking = ({ bookingId, enabled }: UseGPSTrackingOptions) =>
         positionsRef.current.push(pos);
         setError(null);
 
-        // Broadcast position to owner
         channel.send({
           type: "broadcast",
           event: "position",
@@ -85,11 +82,64 @@ export const useGPSTracking = ({ bookingId, enabled }: UseGPSTrackingOptions) =>
     setTracking(false);
   }, []);
 
-  // Auto start/stop based on enabled prop
+  // Save GPS trail to booking notes as JSON when stopping
+  const saveTrailToBooking = useCallback(async () => {
+    if (!bookingId || positionsRef.current.length === 0) return;
+
+    // Sample positions to max 200 points to keep payload reasonable
+    const positions = positionsRef.current;
+    let sampled = positions;
+    if (positions.length > 200) {
+      const step = Math.ceil(positions.length / 200);
+      sampled = positions.filter((_, i) => i % step === 0);
+      // Always include last position
+      if (sampled[sampled.length - 1] !== positions[positions.length - 1]) {
+        sampled.push(positions[positions.length - 1]);
+      }
+    }
+
+    // Calculate total distance
+    const totalDistance = sampled.reduce((acc, p, i) => {
+      if (i === 0) return 0;
+      const prev = sampled[i - 1];
+      const R = 6371e3;
+      const dLat = ((p.lat - prev.lat) * Math.PI) / 180;
+      const dLng = ((p.lng - prev.lng) * Math.PI) / 180;
+      const a = Math.sin(dLat / 2) ** 2 + Math.cos((prev.lat * Math.PI) / 180) * Math.cos((p.lat * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
+      return acc + 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }, 0);
+
+    const gpsData = {
+      trail: sampled,
+      distance_meters: Math.round(totalDistance),
+      point_count: sampled.length,
+      start_time: sampled[0]?.timestamp,
+      end_time: sampled[sampled.length - 1]?.timestamp,
+    };
+
+    // Get existing notes and append GPS data
+    const { data: booking } = await supabase
+      .from("bookings")
+      .select("notes")
+      .eq("id", bookingId)
+      .single();
+
+    const existingNotes = booking?.notes || "";
+    const gpsTag = `\n[GPS_DATA]${JSON.stringify(gpsData)}[/GPS_DATA]`;
+    
+    await supabase
+      .from("bookings")
+      .update({ notes: existingNotes + gpsTag })
+      .eq("id", bookingId);
+  }, [bookingId]);
+
   useEffect(() => {
     if (enabled && bookingId) {
       startTracking();
     } else {
+      if (tracking && positionsRef.current.length > 0) {
+        saveTrailToBooking();
+      }
       stopTracking();
     }
     return () => stopTracking();
@@ -102,7 +152,44 @@ export const useGPSTracking = ({ bookingId, enabled }: UseGPSTrackingOptions) =>
     positions: positionsRef.current,
     startTracking,
     stopTracking,
+    saveTrailToBooking,
   };
+};
+
+// Parse GPS data from booking notes
+export const parseGPSDataFromNotes = (notes: string | null): GPSPosition[] | null => {
+  if (!notes) return null;
+  const match = notes.match(/\[GPS_DATA\](.*?)\[\/GPS_DATA\]/);
+  if (!match) return null;
+  try {
+    const data = JSON.parse(match[1]);
+    return data.trail as GPSPosition[];
+  } catch {
+    return null;
+  }
+};
+
+export const parseGPSMetaFromNotes = (notes: string | null) => {
+  if (!notes) return null;
+  const match = notes.match(/\[GPS_DATA\](.*?)\[\/GPS_DATA\]/);
+  if (!match) return null;
+  try {
+    const data = JSON.parse(match[1]);
+    return {
+      distance_meters: data.distance_meters as number,
+      point_count: data.point_count as number,
+      start_time: data.start_time as number,
+      end_time: data.end_time as number,
+    };
+  } catch {
+    return null;
+  }
+};
+
+// Clean notes by removing GPS data tag
+export const cleanNotesFromGPS = (notes: string | null): string => {
+  if (!notes) return "";
+  return notes.replace(/\n?\[GPS_DATA\].*?\[\/GPS_DATA\]/s, "").trim();
 };
 
 // Hook for owner to watch walker's GPS position
