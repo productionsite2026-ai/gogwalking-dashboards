@@ -11,6 +11,8 @@ import UpcomingBookings from "@/components/dashboard-v2/UpcomingBookings";
 import LiveTrackingMap from "@/components/dashboard-v2/LiveTrackingMap";
 import WalkReplayMap from "@/components/dashboard-v2/WalkReplayMap";
 import FavoritesTab from "@/components/dashboard-v2/tabs/FavoritesTab";
+import ReferralTab from "@/components/dashboard/owner/ReferralTab";
+import ReviewsTab from "@/components/dashboard-v2/tabs/ReviewsTab";
 import ProfileTab from "@/components/dashboard-v2/tabs/ProfileTab";
 import BookingsTab from "@/components/dashboard-v2/tabs/BookingsTab";
 import DogsTab from "@/components/dashboard-v2/tabs/DogsTab";
@@ -110,6 +112,8 @@ const OwnerDashboard = () => {
   if (activeTab === "reservations") return (<div className="min-h-screen bg-background max-w-lg mx-auto"><BookingsTab role="owner" /><BottomNav role="owner" activeMission={activeMissionData} /></div>);
   if (activeTab === "chiens") return (<div className="min-h-screen bg-background max-w-lg mx-auto"><DogsTab /><BottomNav role="owner" activeMission={activeMissionData} /></div>);
   if (activeTab === "messages") return (<div className="min-h-screen bg-background max-w-lg mx-auto"><MessagesTab /><BottomNav role="owner" activeMission={activeMissionData} /></div>);
+  if (activeTab === "parrainage") return (<div className="min-h-screen bg-background max-w-lg mx-auto p-4"><ReferralTab /><BottomNav role="owner" activeMission={activeMissionData} /></div>);
+  if (activeTab === "avis") return (<div className="min-h-screen bg-background max-w-lg mx-auto"><ReviewsTab /><BottomNav role="owner" activeMission={activeMissionData} /></div>);
 
   return (
     <div className="min-h-screen bg-background pb-24 max-w-lg mx-auto">
