@@ -15,15 +15,15 @@ const QuickActions = ({ role }: { role: "owner" | "walker" }) => {
 
   const ownerActions: QuickAction[] = [
     { icon: Calendar, label: "Réserver", gradient: "gradient-primary", path: "/find-walkers" },
-    { icon: MapPin, label: "Tracking", gradient: "gradient-accent" },
+    { icon: MapPin, label: "Tracking", gradient: "gradient-accent", path: "/dashboard?tab=reservations" },
     { icon: Clock, label: "Historique", gradient: "gradient-passion", path: "/dashboard?tab=reservations" },
     { icon: Star, label: "Favoris", gradient: "gradient-community", path: "/dashboard?tab=favoris" },
   ];
 
   const walkerActions: QuickAction[] = [
     { icon: Calendar, label: "Planning", gradient: "gradient-primary", path: "/walker/dashboard?tab=missions" },
-    { icon: MapPin, label: "Zone", gradient: "gradient-accent" },
-    { icon: Clock, label: "Historique", gradient: "gradient-passion", path: "/walker/dashboard?tab=gains" },
+    { icon: MapPin, label: "Disponibilité", gradient: "gradient-accent", path: "/walker/dashboard?tab=disponibilite" },
+    { icon: Clock, label: "Revenus", gradient: "gradient-passion", path: "/walker/dashboard?tab=gains" },
     { icon: Star, label: "Avis", gradient: "gradient-community", path: "/walker/dashboard?tab=avis" },
   ];
 
