@@ -3,17 +3,14 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
-  Settings, Bell, Shield, Moon, Sun, Globe, Smartphone, 
-  Mail, Lock, Trash2, Download, Eye, EyeOff, LogOut,
-  Palette, Monitor
+  Settings, Bell, Shield, Globe, Smartphone, 
+  Mail, Lock, Trash2, Download, Eye, LogOut
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
-import { useTheme } from "next-themes";
 
 interface AdvancedSettingsProps {
   userType: "owner" | "walker";
@@ -21,12 +18,10 @@ interface AdvancedSettingsProps {
 
 const AdvancedSettings = ({ userType }: AdvancedSettingsProps) => {
   const navigate = useNavigate();
-  const { theme, setTheme } = useTheme();
   const [notifications, setNotifications] = useState({
     email: true,
     push: true,
     sms: false,
-    marketing: false,
     bookingReminders: true,
     reviews: true,
     messages: true,
@@ -55,49 +50,6 @@ const AdvancedSettings = ({ userType }: AdvancedSettingsProps) => {
       animate={{ opacity: 1 }}
       className="space-y-6"
     >
-      {/* Appearance */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-100 to-pink-100 dark:from-purple-900/30 dark:to-pink-900/30 flex items-center justify-center">
-              <Palette className="h-5 w-5 text-purple-600" />
-            </div>
-            <div>
-              <CardTitle className="text-lg">Apparence</CardTitle>
-              <CardDescription>Personnalisez l'interface</CardDescription>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-3 gap-3">
-            <Button
-              variant={theme === "light" ? "default" : "outline"}
-              onClick={() => setTheme("light")}
-              className="h-auto py-4 flex flex-col gap-2"
-            >
-              <Sun className="h-6 w-6" />
-              <span>Clair</span>
-            </Button>
-            <Button
-              variant={theme === "dark" ? "default" : "outline"}
-              onClick={() => setTheme("dark")}
-              className="h-auto py-4 flex flex-col gap-2"
-            >
-              <Moon className="h-6 w-6" />
-              <span>Sombre</span>
-            </Button>
-            <Button
-              variant={theme === "system" ? "default" : "outline"}
-              onClick={() => setTheme("system")}
-              className="h-auto py-4 flex flex-col gap-2"
-            >
-              <Monitor className="h-6 w-6" />
-              <span>Système</span>
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
       {/* Notifications */}
       <Card>
         <CardHeader>
@@ -184,8 +136,8 @@ const AdvancedSettings = ({ userType }: AdvancedSettingsProps) => {
       <Card>
         <CardHeader>
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
-              <Eye className="h-5 w-5 text-green-600" />
+            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+              <Eye className="h-5 w-5 text-primary" />
             </div>
             <div>
               <CardTitle className="text-lg">Confidentialité</CardTitle>
@@ -233,7 +185,7 @@ const AdvancedSettings = ({ userType }: AdvancedSettingsProps) => {
       <Card>
         <CardHeader>
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center">
               <Shield className="h-5 w-5 text-amber-600" />
             </div>
             <div>
@@ -270,7 +222,7 @@ const AdvancedSettings = ({ userType }: AdvancedSettingsProps) => {
       <Card className="border-destructive/20">
         <CardHeader>
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-destructive/10 flex items-center justify-center">
               <Settings className="h-5 w-5 text-destructive" />
             </div>
             <div>
