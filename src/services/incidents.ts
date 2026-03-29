@@ -1,6 +1,6 @@
 /**
  * Service Incidents - Signalement et gestion des incidents
- * Utilise Supabase directement côté client
+ * Utilise la table incident_reports de Supabase
  */
 
 import { supabase } from "@/integrations/supabase/client";
@@ -13,37 +13,6 @@ export type IncidentType =
   | 'property_damage'
   | 'health'
   | 'other';
-
-export interface IncidentReport {
-  id: string;
-  bookingId: string;
-  reporterId: string;
-  reporterType: 'walker' | 'owner';
-  type: IncidentType;
-  severity: IncidentSeverity;
-  title: string;
-  description: string;
-  location?: string;
-  timestamp: Date;
-  photoUrls: string[];
-  status: 'open' | 'acknowledged' | 'investigating' | 'resolved' | 'closed';
-  resolution?: string;
-  resolvedAt?: Date;
-  resolvedBy?: string;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-export interface IncidentNotification {
-  id: string;
-  incidentId: string;
-  recipientId: string;
-  recipientEmail: string;
-  type: 'incident_reported' | 'incident_acknowledged' | 'incident_resolved';
-  message: string;
-  read: boolean;
-  createdAt: Date;
-}
 
 export const INCIDENT_TYPES: Record<IncidentType, string> = {
   injury: 'Blessure du chien',
@@ -62,37 +31,55 @@ export const SEVERITY_LEVELS: Record<IncidentSeverity, string> = {
 };
 
 /**
- * Créer un rapport d'incident via notification Supabase
+ * Créer un rapport d'incident
  */
-export async function createIncidentReport(
-  report: Omit<IncidentReport, 'id' | 'createdAt' | 'updatedAt' | 'status' | 'resolution' | 'resolvedAt' | 'resolvedBy'>
-): Promise<IncidentReport> {
-  // Insert as a notification for now (incident_reports table may not exist yet)
-  const { error } = await supabase
-    .from('notifications')
+export async function createIncidentReport(data: {
+  bookingId: string;
+  reporterId: string;
+  type: IncidentType;
+  description: string;
+}) {
+  const { data: report, error } = await supabase
+    .from('incident_reports')
     .insert({
-      user_id: report.reporterId,
-      type: 'incident',
-      title: `🚨 Incident: ${report.title}`,
-      message: `${INCIDENT_TYPES[report.type]} - ${SEVERITY_LEVELS[report.severity]}: ${report.description}`,
-    });
+      booking_id: data.bookingId,
+      reporter_id: data.reporterId,
+      type: data.type,
+      description: data.description,
+      status: 'pending',
+    })
+    .select()
+    .single();
 
-  if (error) {
-    console.error('Erreur création rapport incident:', error);
-    throw new Error('Impossible de créer le rapport');
-  }
+  if (error) throw error;
 
-  return {
-    ...report,
-    id: `incident-${Date.now()}`,
-    status: 'open',
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  };
+  // Also create a notification
+  await supabase.from('notifications').insert({
+    user_id: data.reporterId,
+    type: 'incident',
+    title: `🚨 Incident signalé`,
+    message: `${INCIDENT_TYPES[data.type]}: ${data.description}`,
+  });
+
+  return report;
 }
 
 /**
- * Uploader une photo d'incident
+ * Récupérer les incidents d'un utilisateur
+ */
+export async function getUserIncidents(userId: string) {
+  const { data, error } = await supabase
+    .from('incident_reports')
+    .select('*')
+    .eq('reporter_id', userId)
+    .order('reported_at', { ascending: false });
+
+  if (error) throw error;
+  return data || [];
+}
+
+/**
+ * Uploader une photo d'incident vers le bucket walk-proofs
  */
 export async function uploadIncidentPhoto(file: File, incidentId: string): Promise<string | null> {
   const fileName = `incidents/${incidentId}/${Date.now()}-${file.name}`;
@@ -112,10 +99,3 @@ export async function uploadIncidentPhoto(file: File, incidentId: string): Promi
 
   return urlData.publicUrl;
 }
-
-export default {
-  INCIDENT_TYPES,
-  SEVERITY_LEVELS,
-  createIncidentReport,
-  uploadIncidentPhoto,
-};
