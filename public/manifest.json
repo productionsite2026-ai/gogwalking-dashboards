@@ -1,15 +1,15 @@
 {
-  "name": "DogWalking - Promeneurs de chiens vérifiés",
+  "name": "DogWalking - Services de Promenade de Chiens",
   "short_name": "DogWalking",
-  "description": "Trouvez des promeneurs de chiens professionnels vérifiés en France. Réservation simple, suivi GPS, paiement sécurisé.",
+  "description": "Plateforme de réservation de promeneurs de chiens professionnels avec paiement sécurisé et suivi GPS.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#2563eb",
+  "theme_color": "#4B8BCA",
   "orientation": "portrait-primary",
   "scope": "/",
   "lang": "fr",
-  "categories": ["lifestyle", "pets", "services"],
+  "categories": ["lifestyle", "productivity"],
   "icons": [
     {
       "src": "/icons/icon-72x72.png",
@@ -83,6 +83,20 @@
       "icons": [{ "src": "/icons/icon-96x96.png", "sizes": "96x96" }]
     }
   ],
-  "related_applications": [],
-  "prefer_related_applications": false
+  "share_target": {
+    "action": "/share",
+    "method": "POST",
+    "enctype": "application/x-www-form-urlencoded",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url"
+    }
+  },
+  "protocol_handlers": [
+    {
+      "protocol": "web+dogwalking",
+      "url": "/protocol?url=%s"
+    }
+  ]
 }
