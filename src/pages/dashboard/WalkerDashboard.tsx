@@ -16,6 +16,8 @@ import BookingsTab from "@/components/dashboard-v2/tabs/BookingsTab";
 import EarningsTab from "@/components/dashboard-v2/tabs/EarningsTab";
 import ReviewsTab from "@/components/dashboard-v2/tabs/ReviewsTab";
 import MessagesTab from "@/components/dashboard-v2/tabs/MessagesTab";
+import WalkerTrainingTab from "@/components/dashboard/walker/TrainingTab";
+import WalkerInvoicesTab from "@/components/dashboard/walker/InvoicesTab";
 import { motion } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProfile, useWalkerProfile } from "@/hooks/useProfile";
