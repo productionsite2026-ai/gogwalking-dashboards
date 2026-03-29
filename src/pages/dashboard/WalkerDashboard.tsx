@@ -18,6 +18,7 @@ import ReviewsTab from "@/components/dashboard-v2/tabs/ReviewsTab";
 import MessagesTab from "@/components/dashboard-v2/tabs/MessagesTab";
 import WalkerTrainingTab from "@/components/dashboard/walker/TrainingTab";
 import WalkerInvoicesTab from "@/components/dashboard/walker/InvoicesTab";
+import WalkerAvailabilityTab from "@/components/dashboard/walker/AvailabilityTab";
 import { motion } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProfile, useWalkerProfile } from "@/hooks/useProfile";
@@ -75,6 +76,7 @@ const WalkerDashboard = () => {
   if (activeTab === "messages") return (<div className="min-h-screen bg-background max-w-lg mx-auto"><MessagesTab /><BottomNav role="walker" activeMission={activeMissionData} /></div>);
   if (activeTab === "formation") return (<div className="min-h-screen bg-background max-w-lg mx-auto"><WalkerTrainingTab /><BottomNav role="walker" activeMission={activeMissionData} /></div>);
   if (activeTab === "factures") return (<div className="min-h-screen bg-background max-w-lg mx-auto"><WalkerInvoicesTab /><BottomNav role="walker" activeMission={activeMissionData} /></div>);
+  if (activeTab === "disponibilite") return (<div className="min-h-screen bg-background max-w-lg mx-auto p-4"><WalkerAvailabilityTab walkerProfile={displayWalkerProfile} /><BottomNav role="walker" activeMission={activeMissionData} /></div>);
 
   return (
     <div className="min-h-screen bg-background pb-24 max-w-lg mx-auto">
