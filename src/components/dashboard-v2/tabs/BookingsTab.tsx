@@ -1,4 +1,4 @@
-import { Calendar, Clock, CheckCircle, XCircle, AlertCircle, MapPin, MessageCircle, Phone } from "lucide-react";
+import { Calendar, Clock, CheckCircle, XCircle, AlertCircle, MapPin, MessageCircle, Phone, Star, RefreshCw, Navigation } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBookings, useUpdateBooking } from "@/hooks/useNewBookings";
@@ -12,7 +12,7 @@ type Filter = "all" | "pending" | "confirmed" | "in_progress" | "completed" | "c
 const statusConfig: Record<string, { label: string; icon: any; className: string }> = {
   pending: { label: "En attente", icon: AlertCircle, className: "bg-amber-500/12 text-amber-600" },
   confirmed: { label: "Confirmée", icon: CheckCircle, className: "bg-primary/12 text-primary" },
-  in_progress: { label: "En cours", icon: Clock, className: "bg-accent/12 text-accent" },
+  in_progress: { label: "En cours", icon: Navigation, className: "bg-accent/12 text-accent" },
   completed: { label: "Terminée", icon: CheckCircle, className: "bg-primary/12 text-primary" },
   cancelled: { label: "Annulée", icon: XCircle, className: "bg-destructive/12 text-destructive" },
 };
@@ -56,11 +56,37 @@ const BookingsTab = ({ role }: { role: "owner" | "walker" }) => {
     } catch { toast.error("Erreur"); }
   };
 
+  // Aggregate stats
+  const totalBookings = bookings.length;
+  const completedCount = bookings.filter((b: any) => b.status === "completed").length;
+  const totalSpent = bookings.filter((b: any) => b.status === "completed").reduce((s: number, b: any) => s + Number(b.price || 0), 0);
+
   return (
     <div className="px-4 py-6 space-y-4 pb-24">
       <div className="flex items-center gap-2 mb-1">
         <Calendar className="w-5 h-5 text-primary" />
-        <h2 className="text-lg font-black text-foreground">Réservations</h2>
+        <h2 className="text-lg font-black text-foreground">
+          {role === "walker" ? "Mes Missions" : "Mes Réservations"}
+        </h2>
+      </div>
+
+      {/* Quick Stats */}
+      <div className="grid grid-cols-3 gap-2">
+        <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+          className="bg-card rounded-xl shadow-card p-3 text-center">
+          <span className="text-lg font-black text-foreground">{totalBookings}</span>
+          <p className="text-[9px] text-muted-foreground font-semibold">Total</p>
+        </motion.div>
+        <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.04 }}
+          className="bg-card rounded-xl shadow-card p-3 text-center">
+          <span className="text-lg font-black text-primary">{completedCount}</span>
+          <p className="text-[9px] text-muted-foreground font-semibold">Terminées</p>
+        </motion.div>
+        <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }}
+          className="bg-card rounded-xl shadow-card p-3 text-center">
+          <span className="text-lg font-black text-foreground">{totalSpent.toFixed(0)}€</span>
+          <p className="text-[9px] text-muted-foreground font-semibold">{role === "walker" ? "Gagné" : "Dépensé"}</p>
+        </motion.div>
       </div>
 
       {/* Filters */}
@@ -78,8 +104,10 @@ const BookingsTab = ({ role }: { role: "owner" | "walker" }) => {
       {filtered.length === 0 ? (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center py-12">
           <Calendar className="w-10 h-10 text-muted-foreground/30 mx-auto mb-2" />
-          <p className="text-sm font-semibold text-muted-foreground">Aucune réservation</p>
-          {role === "owner" && (
+          <p className="text-sm font-semibold text-muted-foreground">
+            {filter === "all" ? "Aucune réservation" : `Aucune réservation ${filters.find(f => f.key === filter)?.label.toLowerCase()}`}
+          </p>
+          {role === "owner" && filter === "all" && (
             <motion.button whileTap={{ scale: 0.95 }} onClick={() => navigate("/find-walkers")}
               className="mt-3 px-4 py-2 rounded-full gradient-primary text-white text-xs font-bold">
               🐕 Réserver une Promenade
@@ -99,8 +127,13 @@ const BookingsTab = ({ role }: { role: "owner" | "walker" }) => {
                 <button className="w-full p-4 text-left" onClick={() => setExpandedId(isExpanded ? null : b.id)}>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <div className="w-9 h-9 rounded-xl gradient-primary flex items-center justify-center shrink-0">
-                        <Calendar className="w-4 h-4 text-white" />
+                      {/* Dog photo or icon */}
+                      <div className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center shrink-0 overflow-hidden">
+                        {(b.dogs?.photo_url) ? (
+                          <img src={b.dogs.photo_url} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                          <Calendar className="w-4 h-4 text-white" />
+                        )}
                       </div>
                       <div>
                         <span className="font-bold text-sm text-foreground">🐕 {b.dogs?.name || b.dogName || "Chien"}</span>
@@ -126,12 +159,24 @@ const BookingsTab = ({ role }: { role: "owner" | "walker" }) => {
                       <div className="px-4 pb-4 space-y-2">
                         {b.address && (
                           <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                            <MapPin className="w-3 h-3" /> {b.address}
+                            <MapPin className="w-3 h-3" /> {b.address}{b.city ? `, ${b.city}` : ""}
                           </div>
                         )}
                         {b.notes && (
                           <p className="text-xs text-muted-foreground bg-muted/50 rounded-xl px-3 py-2">📝 {b.notes}</p>
                         )}
+
+                        {/* Walker/Owner info */}
+                        {role === "owner" && b.walker_id && (
+                          <div className="flex items-center gap-2 bg-primary/5 rounded-xl px-3 py-2">
+                            <span className="text-xs text-foreground font-semibold">🏃 Promeneur assigné</span>
+                            <button onClick={() => navigate(`/messages?user=${b.walker_id}`)}
+                              className="ml-auto text-[10px] text-primary font-bold flex items-center gap-1">
+                              <MessageCircle className="w-3 h-3" /> Contacter
+                            </button>
+                          </div>
+                        )}
+
                         <div className="flex gap-2 pt-1">
                           {b.status === "pending" && (
                             <>
@@ -146,9 +191,26 @@ const BookingsTab = ({ role }: { role: "owner" | "walker" }) => {
                             </>
                           )}
                           {b.status === "confirmed" && (
-                            <button onClick={() => navigate("/messages")}
-                              className="flex-1 py-2 rounded-xl bg-accent/10 text-accent text-xs font-bold flex items-center justify-center gap-1">
-                              <MessageCircle className="w-3 h-3" /> Contacter
+                            <>
+                              <button onClick={() => navigate(`/messages`)}
+                                className="flex-1 py-2 rounded-xl bg-accent/10 text-accent text-xs font-bold flex items-center justify-center gap-1">
+                                <MessageCircle className="w-3 h-3" /> Contacter
+                              </button>
+                              <button onClick={() => handleCancel(b.id)}
+                                className="py-2 px-3 rounded-xl border border-destructive/20 text-destructive text-xs font-bold">
+                                Annuler
+                              </button>
+                            </>
+                          )}
+                          {b.status === "completed" && role === "owner" && (
+                            <button className="flex-1 py-2 rounded-xl bg-amber-500/10 text-amber-600 text-xs font-bold flex items-center justify-center gap-1">
+                              <Star className="w-3 h-3" /> Laisser un avis
+                            </button>
+                          )}
+                          {b.status === "completed" && role === "owner" && (
+                            <button onClick={() => navigate("/find-walkers")}
+                              className="flex-1 py-2 rounded-xl gradient-primary text-white text-xs font-bold flex items-center justify-center gap-1">
+                              <RefreshCw className="w-3 h-3" /> Re-réserver
                             </button>
                           )}
                           {b.status === "cancelled" && (

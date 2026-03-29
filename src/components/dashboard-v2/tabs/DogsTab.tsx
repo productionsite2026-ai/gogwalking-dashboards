@@ -1,4 +1,4 @@
-import { Plus, Dog, Weight, Ruler, Syringe, Camera, RefreshCw, Trash2, Edit3, X, Check } from "lucide-react";
+import { Plus, Dog, Weight, Ruler, Syringe, Camera, RefreshCw, Trash2, Edit3, X, Check, Heart, Calendar, AlertTriangle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDogs, useAddDog, useDeleteDog } from "@/hooks/useNewDogs";
@@ -7,6 +7,7 @@ import { useState, useRef } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import dogGolden from "@/assets/dog-golden.jpg";
 
 const DogsTab = () => {
@@ -15,6 +16,7 @@ const DogsTab = () => {
   const addDog = useAddDog();
   const deleteDog = useDeleteDog();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const isDemo = !user;
   const dogs = isDemo ? mockDogs : realDogs;
   const [showForm, setShowForm] = useState(false);
@@ -22,9 +24,11 @@ const DogsTab = () => {
   const [breed, setBreed] = useState("");
   const [age, setAge] = useState("");
   const [weight, setWeight] = useState("");
+  const [temperament, setTemperament] = useState("");
   const [specialNeeds, setSpecialNeeds] = useState("");
   const [uploadingDogId, setUploadingDogId] = useState<string | null>(null);
   const [deletingDogId, setDeletingDogId] = useState<string | null>(null);
+  const [expandedDogId, setExpandedDogId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedDogId, setSelectedDogId] = useState<string | null>(null);
 
@@ -37,10 +41,11 @@ const DogsTab = () => {
         breed: breed || null,
         age: age ? Number(age) : null,
         weight: weight ? Number(weight) : null,
+        temperament: temperament || null,
         special_needs: specialNeeds || null,
       });
       toast.success(`${name} ajouté !`);
-      setName(""); setBreed(""); setAge(""); setWeight(""); setSpecialNeeds(""); setShowForm(false);
+      setName(""); setBreed(""); setAge(""); setWeight(""); setTemperament(""); setSpecialNeeds(""); setShowForm(false);
     } catch { toast.error("Erreur lors de l'ajout"); }
   };
 
@@ -57,32 +62,19 @@ const DogsTab = () => {
   const handlePhotoUpload = async (file: File, dogId: string, dogName: string) => {
     if (!user) return;
     if (!file.type.startsWith('image/')) { toast.error("Format non supporté"); return; }
-    if (file.size > 5 * 1024 * 1024) { toast.error("Image trop volumineuse (max 5MB)"); return; }
-
+    if (file.size > 5 * 1024 * 1024) { toast.error("Max 5MB"); return; }
     setUploadingDogId(dogId);
     try {
       const fileExt = file.name.split('.').pop();
       const fileName = `${dogId}/photo_${Date.now()}.${fileExt}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from('dog-photos')
-        .upload(fileName, file, { cacheControl: '3600', upsert: true });
+      const { error: uploadError } = await supabase.storage.from('dog-photos').upload(fileName, file, { cacheControl: '3600', upsert: true });
       if (uploadError) throw uploadError;
-
       const { data: urlData } = supabase.storage.from('dog-photos').getPublicUrl(fileName);
-
-      await supabase.from('dogs').update({
-        photo_url: urlData.publicUrl,
-        updated_at: new Date().toISOString()
-      }).eq('id', dogId);
-
+      await supabase.from('dogs').update({ photo_url: urlData.publicUrl, updated_at: new Date().toISOString() }).eq('id', dogId);
       queryClient.invalidateQueries({ queryKey: ["dogs"] });
       toast.success(`Photo de ${dogName} mise à jour !`);
-    } catch (error: any) {
-      toast.error(error.message);
-    } finally {
-      setUploadingDogId(null);
-    }
+    } catch (error: any) { toast.error(error.message); }
+    finally { setUploadingDogId(null); }
   };
 
   return (
@@ -100,6 +92,7 @@ const DogsTab = () => {
         </motion.button>
       </div>
 
+      {/* Add Form */}
       <AnimatePresence>
         {showForm && (
           <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
@@ -114,10 +107,12 @@ const DogsTab = () => {
               <input value={weight} onChange={e => setWeight(e.target.value)} placeholder="Poids (kg)" type="number" min="0"
                 className="w-full px-3 py-2.5 rounded-xl bg-muted text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
             </div>
-            <input value={specialNeeds} onChange={e => setSpecialNeeds(e.target.value)} placeholder="Besoins spéciaux (optionnel)"
+            <input value={temperament} onChange={e => setTemperament(e.target.value)} placeholder="Tempérament (calme, joueur...)"
+              className="w-full px-3 py-2.5 rounded-xl bg-muted text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+            <input value={specialNeeds} onChange={e => setSpecialNeeds(e.target.value)} placeholder="Besoins médicaux / allergies"
               className="w-full px-3 py-2.5 rounded-xl bg-muted text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
             <div className="flex gap-2 pt-1">
-              <button onClick={() => setShowForm(false)} className="flex-1 py-2.5 rounded-xl border border-border text-sm font-bold hover:bg-muted/50 transition-colors">Annuler</button>
+              <button onClick={() => setShowForm(false)} className="flex-1 py-2.5 rounded-xl border border-border text-sm font-bold">Annuler</button>
               <button onClick={handleAdd} disabled={addDog.isPending}
                 className="flex-1 py-2.5 rounded-xl gradient-primary text-white text-sm font-bold disabled:opacity-50">
                 {addDog.isPending ? "Ajout..." : "✓ Ajouter"}
@@ -140,66 +135,100 @@ const DogsTab = () => {
 
       {dogs.length === 0 ? (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center py-12">
-          <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-3">
-            <Dog className="w-8 h-8 text-primary/40" />
+          <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-3 text-3xl">
+            🐕
           </div>
-          <p className="text-sm font-semibold text-muted-foreground">Ajoutez votre premier chien</p>
-          <p className="text-xs text-muted-foreground mt-1">Cliquez sur "Ajouter" pour commencer</p>
+          <p className="text-sm font-bold text-foreground">Ajoutez votre premier chien</p>
+          <p className="text-xs text-muted-foreground mt-1">Pour réserver des promenades adaptées</p>
+          <motion.button whileTap={{ scale: 0.95 }} onClick={() => setShowForm(true)}
+            className="mt-4 px-5 py-2.5 rounded-full gradient-primary text-white text-xs font-bold">
+            <Plus className="w-3.5 h-3.5 inline mr-1" /> Ajouter un chien
+          </motion.button>
         </motion.div>
       ) : (
         <div className="space-y-3">
-          {dogs.map((dog: any, i: number) => (
-            <motion.div key={dog.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.06 }}
-              className="bg-card rounded-2xl shadow-card overflow-hidden">
-              <div className="flex">
-                {/* Photo with upload */}
-                <div className="relative w-28 h-28 shrink-0 group">
-                  <img src={dog.photo_url || dogGolden} alt={dog.name}
-                    className="w-full h-full object-cover" loading="lazy" />
-                  {uploadingDogId === dog.id ? (
-                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                      <RefreshCw className="w-5 h-5 text-white animate-spin" />
-                    </div>
-                  ) : !isDemo && (
-                    <button
-                      onClick={() => { setSelectedDogId(dog.id); fileInputRef.current?.click(); }}
-                      className="absolute inset-0 bg-black/0 group-hover:bg-black/30 flex items-center justify-center transition-colors"
-                    >
-                      <Camera className="w-5 h-5 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
-                    </button>
-                  )}
-                </div>
-                <div className="p-3 flex-1 flex flex-col justify-between">
-                  <div>
-                    <div className="flex items-center justify-between">
-                      <h3 className="font-bold text-foreground">{dog.name}</h3>
-                      {!isDemo && (
-                        <button
-                          onClick={() => handleDelete(dog.id, dog.name)}
-                          disabled={deletingDogId === dog.id}
-                          className="text-destructive/60 hover:text-destructive transition-colors p-1"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                    </div>
-                    <p className="text-[11px] text-muted-foreground">{dog.breed || "Race inconnue"}</p>
-                  </div>
-                  <div className="flex items-center gap-3 mt-2 text-[10px] text-muted-foreground flex-wrap">
-                    {dog.age && <span className="flex items-center gap-0.5 bg-muted rounded-full px-2 py-0.5"><Ruler className="w-3 h-3" /> {dog.age} ans</span>}
-                    {dog.weight && <span className="flex items-center gap-0.5 bg-muted rounded-full px-2 py-0.5"><Weight className="w-3 h-3" /> {dog.weight} kg</span>}
-                    {dog.vaccinations_up_to_date && (
-                      <span className="flex items-center gap-0.5 bg-primary/10 text-primary rounded-full px-2 py-0.5"><Syringe className="w-3 h-3" /> Vacciné</span>
+          {dogs.map((dog: any, i: number) => {
+            const isExpanded = expandedDogId === dog.id;
+            return (
+              <motion.div key={dog.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.06 }}
+                className="bg-card rounded-2xl shadow-card overflow-hidden">
+                <button className="w-full flex text-left" onClick={() => setExpandedDogId(isExpanded ? null : dog.id)}>
+                  {/* Photo */}
+                  <div className="relative w-28 h-28 shrink-0 group">
+                    <img src={dog.photo_url || dogGolden} alt={dog.name}
+                      className="w-full h-full object-cover" loading="lazy" />
+                    {uploadingDogId === dog.id && (
+                      <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                        <RefreshCw className="w-5 h-5 text-white animate-spin" />
+                      </div>
                     )}
                   </div>
-                  {dog.special_needs && (
-                    <p className="text-[9px] text-amber-600 mt-1 bg-amber-500/10 rounded-lg px-2 py-1">⚠️ {dog.special_needs}</p>
+                  <div className="p-3 flex-1 flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <h3 className="font-bold text-foreground">{dog.name}</h3>
+                        <Heart className="w-3.5 h-3.5 text-[hsl(var(--heart))] fill-[hsl(var(--heart))]/20" />
+                      </div>
+                      <p className="text-[11px] text-muted-foreground">{dog.breed || "Race inconnue"}</p>
+                    </div>
+                    <div className="flex items-center gap-2 mt-2 text-[10px] text-muted-foreground flex-wrap">
+                      {dog.age && <span className="flex items-center gap-0.5 bg-muted rounded-full px-2 py-0.5"><Ruler className="w-3 h-3" /> {dog.age} ans</span>}
+                      {dog.weight && <span className="flex items-center gap-0.5 bg-muted rounded-full px-2 py-0.5"><Weight className="w-3 h-3" /> {dog.weight} kg</span>}
+                      {dog.vaccinations_up_to_date && (
+                        <span className="flex items-center gap-0.5 bg-primary/10 text-primary rounded-full px-2 py-0.5"><Syringe className="w-3 h-3" /> Vacciné</span>
+                      )}
+                    </div>
+                  </div>
+                </button>
+
+                {/* Expanded details */}
+                <AnimatePresence>
+                  {isExpanded && (
+                    <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }}
+                      className="overflow-hidden border-t border-border/50">
+                      <div className="p-4 space-y-3">
+                        {dog.temperament && (
+                          <div className="bg-muted/50 rounded-xl px-3 py-2">
+                            <p className="text-[10px] font-bold text-muted-foreground mb-0.5">Tempérament</p>
+                            <p className="text-xs text-foreground">{dog.temperament}</p>
+                          </div>
+                        )}
+                        {dog.special_needs && (
+                          <div className="bg-amber-500/8 border border-amber-500/15 rounded-xl px-3 py-2 flex items-start gap-2">
+                            <AlertTriangle className="w-3.5 h-3.5 text-amber-600 mt-0.5 shrink-0" />
+                            <div>
+                              <p className="text-[10px] font-bold text-amber-600 mb-0.5">Notes médicales</p>
+                              <p className="text-xs text-foreground">{dog.special_needs}</p>
+                            </div>
+                          </div>
+                        )}
+                        <div className="flex gap-2">
+                          {!isDemo && (
+                            <button onClick={(e) => { e.stopPropagation(); setSelectedDogId(dog.id); fileInputRef.current?.click(); }}
+                              className="flex-1 py-2 rounded-xl bg-primary/10 text-primary text-xs font-bold flex items-center justify-center gap-1">
+                              <Camera className="w-3 h-3" /> Photo
+                            </button>
+                          )}
+                          <button onClick={() => navigate("/find-walkers")}
+                            className="flex-1 py-2 rounded-xl gradient-primary text-white text-xs font-bold flex items-center justify-center gap-1">
+                            <Calendar className="w-3 h-3" /> Réserver
+                          </button>
+                          {!isDemo && (
+                            <button onClick={(e) => { e.stopPropagation(); handleDelete(dog.id, dog.name); }}
+                              disabled={deletingDogId === dog.id}
+                              className="py-2 px-3 rounded-xl border border-destructive/20 text-destructive text-xs font-bold">
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </motion.div>
                   )}
-                </div>
-              </div>
-            </motion.div>
-          ))}
+                </AnimatePresence>
+              </motion.div>
+            );
+          })}
         </div>
       )}
     </div>
